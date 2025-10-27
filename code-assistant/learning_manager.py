@@ -1,10 +1,10 @@
 
-from agents import Agent, Runner, function_tool, transfer_to_agent
+from agents import Agent, Runner, function_tool
 from tools import read_code_file, save_learning_doc, get_git_diff
 import specialist_agents
 from typing import Optional
 import asyncio
-
+        
 
 # Convert specialist agents to tools
 @function_tool
@@ -155,90 +155,43 @@ class LearningManager:
         
         yield "Starting code analysis..."
         
-        # Build the analysis workflow based on whether git analysis is included
+        git_context = ""
         if include_git_diff or include_commit_history:
-            # Git-diff-first workflow (better for code review)
-            workflow = self._build_git_first_workflow(file_path, task_description, include_commit_history)
-            yield "Using git-first analysis workflow (recommended for code review)"
-        else:
-            # Standard workflow (learning new code)
-            workflow = self._build_standard_workflow(file_path, task_description)
-            yield "Using standard learning workflow"
+            # Build the git context instruction
+            if include_commit_history:
+                git_context = f"\nSTEP 2: Use get_git_diff with file_path='{file_path}' and include_commit_history=True to get both commit history and diff"
+            else:
+                git_context = f"\nSTEP 2: Use get_git_diff with file_path='{file_path}' to see what changed"
+            
+            git_context += "\nSTEP 3: Pass the full git output to git_diff_analyzer_tool for detailed analysis"
         
+        prompt = f"""Please analyze and document this code file: {file_path}
+
+Task context: {task_description}
+
+STEP 1: Use read_code_file tool to read the actual file content{git_context}
+STEP 3: Use language_teacher_tool to explain the programming concepts
+STEP 4: Use code_explainer_tool to explain what the code actually does
+STEP 5: Use change_documenter_tool to document the specific changes made
+{'STEP 6: Use git_diff_analyzer_tool to analyze the git diff if available' if include_git_diff else ''}
+FINAL STEP: Use save_learning_doc tool to save the documentation
+
+Please create a comprehensive learning document that covers:
+- Programming language concepts used
+- What the code does and how it works
+- Changes made and why
+- Technical implementation details
+
+I want you to analyze the ACTUAL code content and changes, not create generic documentation.
+Focus on what was specifically implemented and why these changes were made."""
+
         yield "Analyzing file and generating documentation..."
         
-        result = await Runner.run(documentation_manager, workflow)
+        result = await Runner.run(documentation_manager, prompt)
         
         # Don't yield "Documentation complete!" here - the UI will add it when displaying final result
         yield result.final_output
     
-    def _build_git_first_workflow(self, file_path: str, task_description: str, include_commit_history: bool) -> str:
-        """Build a git-diff-first workflow for code review"""
-        return f"""Please analyze this code change for review: {file_path}
-
-Task context: {task_description}
-
-🔍 **CODE REVIEW WORKFLOW** (Git-First Approach):
-
-STEP 1: Use read_code_file to get the current code state
-
-STEP 2: Use get_git_diff with file_path='{file_path}' and include_commit_history={include_commit_history}
-   This shows WHAT changed and WHY (from commit messages)
-
-STEP 3: Pass git output to git_diff_analyzer_tool for detailed change analysis
-   Focus on: What changed? Why? Impact? Risks?
-
-STEP 4: Based on the changes identified, use code_explainer_tool to explain:
-   - How the changed sections work
-   - Data flow through modified code
-   - Integration with surrounding code
-
-STEP 5: Use language_teacher_tool ONLY for new language features/patterns introduced in the changes
-   - Focus on language concepts specific to what changed
-   - Compare to other languages if relevant
-
-STEP 6: Use change_documenter_tool to create PR-ready documentation
-
-FINAL STEP: Use save_learning_doc to save the review documentation
-
-**CRITICAL**: This is a CODE REVIEW, not generic learning. Focus on:
-- WHAT specific lines changed (from diff)
-- WHY they changed (from commit messages)
-- HOW the changes work (from code analysis)
-- RISKS and testing needs (from change analysis)
-
-Structure the output for an engineer reviewing this code change."""
-
-    def _build_standard_workflow(self, file_path: str, task_description: str) -> str:
-        """Build standard workflow for learning new code"""
-        return f"""Please analyze and document this code file: {file_path}
-
-Task context: {task_description}
-
-📚 **LEARNING WORKFLOW** (Understanding New Code):
-
-STEP 1: Use read_code_file tool to read the actual file content
-
-STEP 2: Use language_teacher_tool to explain the programming concepts
-   - Language features used
-   - Patterns and idioms
-   - Comparisons to other languages
-
-STEP 3: Use code_explainer_tool to explain what the code actually does
-   - Step-by-step walkthrough
-   - Data flow
-   - Design decisions
-
-STEP 4: Use change_documenter_tool to document the implementation approach
-
-FINAL STEP: Use save_learning_doc tool to save the documentation
-
-**Focus**: Help someone LEARN this codebase from scratch.
-- Explain language concepts
-- Walk through how it works
-- Provide context and best practices
-
-Structure the output for learning and understanding."""
     
     
     async def analyze_multiple_files(

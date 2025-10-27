@@ -87,9 +87,7 @@ async def analyze_code(file_path: str, task_description: str, include_git_diff: 
                         recent_files.sort(key=os.path.getmtime, reverse=True)
                         saved_file_path = recent_files[0]
                 
-                final_output = f"**✅ Analysis Complete!**\n\n---\n\n{chunk}"
-                
-                # Provide download file and show content if we have a saved file
+                # Provide download file and ALWAYS show content on screen
                 if saved_file_path and os.path.exists(saved_file_path):
                     abs_path = os.path.abspath(saved_file_path)
                     
@@ -109,12 +107,14 @@ async def analyze_code(file_path: str, task_description: str, include_git_diff: 
 > 💾 **Use the download button below to save a copy**
 '''
                     
-                    # Show the actual markdown content
+                    # Show the actual markdown content ON SCREEN + provide download
                     display_output = f"**✅ Analysis Complete!**\n\n{success_message}\n\n---\n\n{file_content}"
                     
                     yield status_message + "✓ Documentation complete!\n", display_output, "", abs_path
                 else:
-                    yield status_message + "✓ Documentation complete!\n", final_output, "", None
+                    # No file found but still display the content on screen
+                    display_output = f"**✅ Analysis Complete!**\n\n---\n\n{chunk}"
+                    yield status_message + "✓ Documentation complete!\n", display_output, "", None
                     
     except Exception as e:
         error_msg = f"❌ **Error during analysis:**\n\n```\n{str(e)}\n```"
