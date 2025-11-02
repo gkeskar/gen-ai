@@ -2,9 +2,32 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from project root (.env is 3 levels up)
-env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(dotenv_path=env_path, override=True)
+def find_env_file():
+    """Search upward for .env file starting from current file location"""
+    current_path = Path(__file__).resolve().parent
+    
+    # Search up to 10 levels up
+    for _ in range(10):
+        env_path = current_path / ".env"
+        if env_path.exists():
+            return env_path
+        
+        # Move up one directory
+        parent = current_path.parent
+        if parent == current_path:  # Reached filesystem root
+            break
+        current_path = parent
+    
+    return None
+
+# Load environment variables from project root
+env_path = find_env_file()
+if env_path:
+    load_dotenv(dotenv_path=env_path, override=True)
+    print(f"✓ Loaded .env from: {env_path}")
+else:
+    print("⚠️  No .env file found, using system environment variables")
+    load_dotenv()  # Load from default locations
 
 # Disable tracing to prevent non-fatal errors
 os.environ['LANGCHAIN_TRACING_V2'] = "false"
@@ -12,8 +35,15 @@ os.environ['LANGSMITH_TRACING'] = "false"
 os.environ['LANGCHAIN_API_KEY'] = ""
 
 # Set OpenAI configuration
-os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY')
-os.environ['OPENAI_BASE_URL'] = "https://ai-gateway.zende.sk/v1"
+api_key = os.getenv('OPENAI_API_KEY')
+if api_key:
+    os.environ['OPENAI_API_KEY'] = api_key
+
+# Set OpenAI base URL (configurable via .env, defaults to standard OpenAI)
+base_url = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
+os.environ['OPENAI_BASE_URL'] = base_url
+if base_url != 'https://api.openai.com/v1':
+    print(f"✓ Using custom OpenAI gateway: {base_url}")
 
 # Suppress tracing error messages
 import sys

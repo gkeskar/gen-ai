@@ -55,10 +55,15 @@ pip install -r requirements.txt
 
 3. **Set up environment variables:**
 
-Create a `.env` file in the project root (3 levels up from this directory):
+Create a `.env` file in your project root directory:
 ```bash
 OPENAI_API_KEY=your_openai_api_key_here
+
+# Optional: Use a custom OpenAI gateway (defaults to https://api.openai.com/v1)
+# OPENAI_BASE_URL=https://your-custom-gateway.com/v1
 ```
+
+> 💡 The application automatically searches upward from its location to find the `.env` file, so it works from any directory structure.
 
 ### Usage
 

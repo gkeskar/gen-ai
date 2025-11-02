@@ -6,9 +6,30 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+def find_env_file():
+    """Search upward for .env file starting from current file location"""
+    current_path = Path(__file__).resolve().parent
+    
+    for _ in range(10):
+        env_path = current_path / ".env"
+        if env_path.exists():
+            return env_path
+        
+        parent = current_path.parent
+        if parent == current_path:
+            break
+        current_path = parent
+    
+    return None
+
 # Load environment variables from project root
-env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(dotenv_path=env_path, override=True)
+env_path = find_env_file()
+if env_path:
+    load_dotenv(dotenv_path=env_path, override=True)
+    print(f"✓ Loaded .env from: {env_path}")
+else:
+    print("⚠️  No .env file found, using system environment variables")
+    load_dotenv()
 
 # Set OpenAI configuration - get from environment
 openai_api_key = os.getenv('OPENAI_API_KEY')
@@ -16,10 +37,13 @@ if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in .env file")
 
 os.environ['OPENAI_API_KEY'] = openai_api_key
-os.environ['OPENAI_BASE_URL'] = "https://ai-gateway.zende.sk/v1"
+
+# Use OPENAI_BASE_URL from env or default to standard OpenAI
+base_url = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
+os.environ['OPENAI_BASE_URL'] = base_url
 
 print(f"✓ Loaded OpenAI API Key: {openai_api_key[:10]}...")
-print(f"✓ Using Gateway: https://ai-gateway.zende.sk/v1\n")
+print(f"✓ Using Gateway: {base_url}\n")
 
 from learning_manager import LearningManager
 
