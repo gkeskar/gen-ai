@@ -1,0 +1,9 @@
+.env
+__pycache__/
+.DS_Store
+
+# CrewAI cache and memory
+.crewai/
+*.db
+*.sqlite
+*.sqlite3
