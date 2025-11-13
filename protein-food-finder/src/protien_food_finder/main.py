@@ -38,32 +38,59 @@ def validate_api_keys():
 
 def run():
     """
-    Run the protein food finder crew.
+    Run the protein food finder crew with DYNAMIC workflow.
+    The crew will:
+    1. Find stores near your location
+    2. Dynamically create specialist agents for each store
+    3. Search for products in parallel (if configured)
+    4. Validate and recommend the best options
     """
     # Validate API keys before running
     validate_api_keys()
-    
+
     inputs = {
         'location': 'Belmont, CA 94002',
         'dietary_preferences': '''
-        - High protein 
-        - No Beef or pork, 
-        - chichen and fish, eggs are allowed
-        - Gluten-free
-        - No sugar added
-        - frozen and shelf stable products are allowed
+        - High protein (20g+ per serving)
+        - No beef, pork, turkey, or tuna
+        - Chicken, fish (not tuna), salmon, shrimp, eggs, plant-based allowed
+        - Gluten-free preferred
+        - Reduced/low sugar (5-10g max)
+        - Frozen and shelf stable products allowed
         '''
     }
-    
+
+    # Option to use legacy workflow
+    use_dynamic = os.getenv("USE_DYNAMIC_WORKFLOW", "true").lower() == "true"
+
     try:
         print("\n" + "="*80)
-        print("🚀 Starting Protein Food Finder Crew")
+        print(f"🚀 Starting Protein Food Finder Crew ({'DYNAMIC' if use_dynamic else 'LEGACY'} mode)")
         print("="*80 + "\n")
         print(f"📍 Location: {inputs['location']}")
         print(f"🥗 Dietary Preferences: {inputs['dietary_preferences']}")
         print("\n" + "="*80 + "\n")
-        
-        result = ProtienFoodFinder().crew().kickoff(inputs=inputs)
+
+        # Create crew instance
+        crew_instance = ProtienFoodFinder()
+
+        if use_dynamic:
+            # Use dynamic workflow - builds crew based on found stores
+            print("⚙️  Using DYNAMIC workflow (store-based agents)")
+            print("   - Will find stores first")
+            print("   - Create one specialist agent per store")
+            print("   - Continue even if some stores fail\n")
+
+            # Build and run dynamic crew
+            dynamic_crew = crew_instance.build_dynamic_crew(
+                location=inputs['location'],
+                dietary_preferences=inputs['dietary_preferences']
+            )
+            result = dynamic_crew.kickoff(inputs=inputs)
+        else:
+            # Use legacy workflow - static agents
+            print("⚙️  Using LEGACY workflow (static agents)\n")
+            result = crew_instance.crew().kickoff(inputs=inputs)
         
         print("\n" + "="*80)
         print("✅ CREW EXECUTION COMPLETED")

@@ -39,6 +39,27 @@ nutrition_validator:
   verbose: true
   allow_delegation: false
 
+# TEMPLATE for dynamically created store specialist agents
+# This template is used by crew.py to create one agent per store
+# Variables: {store_name}, {store_website}, {location}, {dietary_preferences}, {products_count}
+store_specialist_template:
+  role: "{store_name} Protein Products Specialist"
+  goal: >
+    Find {products_count} high-protein products (20g+ per serving) available at {store_name}
+    near {location} that match dietary preferences: {dietary_preferences}.
+    Use multiple search strategies including direct site searches, Reddit reviews, and
+    product category searches.
+  backstory: >
+    You are an expert researcher specializing in {store_name} products. You have deep
+    knowledge of their inventory, pricing, and product availability. You know exactly
+    how to search for high-protein foods at {store_name} using web search, site-specific
+    searches (site:{store_website}), and community discussions. You provide detailed
+    nutritional information including protein content, serving sizes, prices, and
+    dietary flags (gluten-free, contains beef/pork/turkey/tuna).
+  llm: gpt-4o-mini
+  verbose: true
+  allow_delegation: false
+
 recommendation_specialist:
   role:  Personal Nutrition Advisor
   goal: >

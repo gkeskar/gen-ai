@@ -1,17 +1,81 @@
 find_stores:
   description: >
-    Search for grocery stores near {location} that are likely to have 
-    good high-protein food options. Focus on well-known chains like 
-    Trader Joe's, Whole Foods, Safeway, Costco, and local Indian grocery food 
-    stores.
+    Search for grocery stores near {location} that are likely to have
+    good high-protein food options. Focus on well-known chains like
+    Trader Joe's, Whole Foods, Costco, Molly Stone's, and Target.
   expected_output: >
-    Provide:
-    - Store names
+    Provide ONLY:
+    - Store names (exactly as they appear: "Trader Joe's", "Whole Foods", "Costco", "Molly Stone's", "Target")
     - Approximate distance from {location}
-    - Store type (Trader Joe's, Whole Foods, Safeway, Costco, local Indian grocery food store)
+    - Brief note on their high-protein food reputation
 
-    Limit results to 3-5 most relevant stores.
+    Format as a simple list:
+    1. Store Name - Distance
+    2. Store Name - Distance
+    ...
+
+    Return 3-5 stores maximum. Be precise with store names for proper matching.
   agent: store_locator
+
+# TEMPLATE for dynamically created store search tasks
+# This template is used by crew.py to create one task per store
+# Variables: {store_name}, {store_website}, {location}, {dietary_preferences}, {products_count}
+store_search_template:
+  description: >
+    Research and identify exactly {products_count} high-protein products (20g+ protein per serving)
+    available at {store_name} near {location}.
+
+    SEARCH STRATEGY:
+    1. Frozen & shelf-stable focus: "{store_name} frozen chicken", "{store_name} frozen fish", "{store_name} protein powder"
+    2. Ready-to-eat options: "{store_name} rotisserie chicken", "{store_name} protein bars", "{store_name} Greek yogurt"
+    3. Site-specific search: "site:{store_website} protein 20g frozen"
+    4. Convenience products: "{store_name} ready to eat high protein", "{store_name} meal prep protein"
+    5. Community reviews: "{store_name} best frozen protein foods site:reddit.com"
+
+    DIETARY FILTERS (MUST apply to ALL searches):
+    - Match preferences: {dietary_preferences}
+    - Exclude: beef, pork, turkey, tuna
+    - Include: chicken, fish (not tuna), salmon, shrimp, eggs, plant-based
+    - Prefer: gluten-free, reduced sugar (5-10g max), low sugar
+    - Look for: frozen and shelf-stable options
+
+    FOR EACH PRODUCT, gather complete information:
+    - Exact product name and brand
+    - Store: {store_name}
+    - Protein: grams per serving (MUST be 20g+)
+    - Serving size: (e.g., "1 cup", "3 oz", "1 container")
+    - Price: $ (search "[product name] {store_name} price" if needed)
+    - Category: (Greek Yogurt, Protein Powder, Protein Bars, Chicken, Salmon, Eggs, Shrimp, Other)
+    - Full nutrition: calories, fat, carbs, fiber, sugar
+    - Gluten-free: YES/NO/UNKNOWN
+    - Contains excluded items: Check for beef/pork/turkey/tuna
+    - Sugar content: grams (flag if >10g)
+
+    TARGET: Find exactly {products_count} products. If you can't find enough, note why.
+
+    QUALITY REQUIREMENTS:
+    - Verify 20g+ protein is per SERVING, not per package
+    - Confirm products are actually sold at {store_name}
+    - Prioritize products with complete nutritional data
+    - If data incomplete, clearly mark as "NEEDS VERIFICATION"
+  expected_output: >
+    A structured list of {products_count} high-protein products from {store_name}:
+
+    ## {store_name} High-Protein Products
+
+    1. [Product Name and Brand]
+       - Protein: Xg per serving (serving size)
+       - Price: $X.XX
+       - Category: [category]
+       - Nutrition: X cal, Xg fat, Xg carbs, Xg fiber, Xg sugar
+       - Gluten-free: YES/NO
+       - Sugar: Xg (FLAGGED if >10g)
+       - Excludes: beef/pork/turkey/tuna ✓
+       - Notes: [any relevant details, availability, flavors]
+
+    [Repeat for all {products_count} products]
+
+    If fewer than {products_count} products found, explain why (limited availability, dietary restrictions, etc.)
 
 research_protein_items:
   description: >
@@ -131,19 +195,36 @@ create_recommendations:
 
     CREATE THE FOLLOWING SECTIONS:
 
-    1. TOP 5 RECOMMENDATIONS (Ranked)
-       - For each: product name, store, protein content, price, protein-per-dollar
-       - Explain WHY recommended (e.g., "highest protein", "best value", "most convenient")
+    1. TOP 3 ITEMS BY STORE (MUST INCLUDE!)
+       - Group recommendations by store
+       - Show exactly 3 best items from EACH store that was searched
+       - Format:
+         ### [Store Name]
+         1. [Product] - Protein: Xg, Price: $X, Why: [reason]
+         2. [Product] - Protein: Xg, Price: $X, Why: [reason]
+         3. [Product] - Protein: Xg, Price: $X, Why: [reason]
+       - Include ALL stores: Trader Joe's, Whole Foods, Molly Stone's, Costco, Target
+       - Prioritize: frozen items, protein powders, protein bars, ready-to-eat meals
 
-    2. MOST CONVENIENT OPTIONS
-       - Ready-to-eat or minimal prep items
+    2. FROZEN & SHELF-STABLE OPTIONS (Most Important!)
+       - Frozen chicken, fish, shrimp from all stores
+       - Protein powders and bars from all stores
+       - Shelf-stable protein shakes
+       - Highlight which store has best frozen options
+       - Long shelf-life convenience
+
+    3. MOST CONVENIENT OPTIONS
+       - Ready-to-eat or minimal prep items from all stores
+       - Rotisserie chicken, pre-cooked proteins
        - Perfect for quick meals or on-the-go
+       - Compare convenience across stores
 
-    3. BEST VALUE OPTIONS
-       - Highest protein-per-dollar ratio
-       - Budget-friendly choices
+    4. BEST VALUE OPTIONS
+       - Highest protein-per-dollar ratio from each store
+       - Budget-friendly choices comparison
+       - Show which store offers best value
 
-    4. SHOPPING STRATEGY
+    5. SHOPPING STRATEGY
        - List stores in visit priority order (based on product availability and proximity)
        - For each store: exact products to buy and estimated cost
        - Total estimated shopping time
@@ -160,15 +241,45 @@ create_recommendations:
     A well-formatted markdown report containing:
 
     # High-Protein Food Recommendations for {location}
-    
-    ## Top 5 Recommendations
-    (Ranked list with protein content, price, store, and why recommended)
-    
-    ## Most Convenient
-    (Ready-to-eat or minimal prep items)
-    
+
+    ## Top 3 Items By Store
+
+    ### Trader Joe's
+    1. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    2. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    3. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+
+    ### Whole Foods
+    1. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    2. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    3. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+
+    ### Molly Stone's
+    1. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    2. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    3. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+
+    ### Costco
+    1. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    2. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    3. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+
+    ### Target
+    1. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    2. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+    3. [Product Name] - Protein: Xg per serving, Price: $X.XX, Why: [reason]
+
+    ## Frozen & Shelf-Stable Options
+    (Best frozen items, protein powders, bars from all stores)
+
+    ## Most Convenient Options
+    (Ready-to-eat items from all stores)
+
+    ## Best Value Options
+    (Highest protein-per-dollar from each store)
+
     ## Shopping Strategy
-    (Which stores to visit and what to buy at each)
+    (Which stores to visit, what to buy at each, estimated costs)
 
     ## Summary
     (Total protein potential, estimated budget, variety notes)
